@@ -1,0 +1,37 @@
+FROM ubuntu:20.04 as build-stage
+
+ARG PYTHON_VERSION
+ARG OPENCV_TAG
+ARG NUMPY_VERSION=1.23.5
+
+RUN apt update && apt install -y software-properties-common curl
+
+RUN add-apt-repository -y 'ppa:deadsnakes/ppa' \
+  && apt update && apt install -y --no-install-recommends \
+    python${PYTHON_VERSION} python${PYTHON_VERSION}-venv python${PYTHON_VERSION}-dev \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
+  && pip install -U pip \
+  && pip --no-cache-dir install numpy==${NUMPY_VERSION}
+
+ENV VENV_ROOT_PREFIX=/opt/venv
+RUN python${PYTHON_VERSION} -m venv ${VENV_ROOT_PREFIX}
+
+
+WORKDIR /opt/
+RUN apt update && apt install -y git build-essential cmake libopenblas-dev liblapacke-dev libjpeg-dev \
+  # trick to opencv find openblas and numpy headers
+  && cp /usr/include/x86_64-linux-gnu/cblas.h /usr/include/ \
+  && ln -s /usr/local/lib/python${PYTHON_VERSION}/dist-packages/numpy/core/include/numpy /usr/include/numpy \
+  && git clone https://github.com/opencv/opencv-python.git \
+  && cd opencv-python \
+  && git checkout ${OPENCV_TAG} \
+  && git submodule update --init --recursive \
+  && export ENABLE_HEADLESS=1 \
+  && MAKEFLAGS='-j3' pip wheel . --verbose \
+  # trick to pack openblas lib to wheel
+  && pip install auditwheel patchelf \
+  && auditwheel repair *.whl --plat manylinux_2_31_x86_64
+
+FROM scratch AS export-stage
+COPY --from=build-stage /opt/opencv-python/wheelhouse /

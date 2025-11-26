@@ -4,6 +4,8 @@ ARG PYTHON_VERSION
 ARG OPENCV_TAG
 ARG NUMPY_VERSION=1.23.5
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt update && apt install -y software-properties-common curl
 
 RUN add-apt-repository -y 'ppa:deadsnakes/ppa' \

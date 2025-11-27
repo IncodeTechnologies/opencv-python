@@ -28,7 +28,10 @@ RUN apt update && apt install -y git build-essential cmake libopenblas-dev libla
   && git checkout ${OPENCV_TAG} \
   && git submodule update --init --recursive --depth 1 \
   && export ENABLE_HEADLESS=1 \
-  && MAKEFLAGS='-j3' pip wheel . --verbose --wheel-dir /opt/opencv-python/wheelhouse
+  && MAKEFLAGS='-j3' pip wheel . --verbose --wheel-dir /opt/opencv-python/wheelhouse \
+  # trick to pack openblas lib to wheel
+  && pip install auditwheel patchelf \
+  && auditwheel repair /opt/opencv-python/wheelhouse/*.whl
 
 FROM scratch AS export-stage
 COPY --from=build-stage /opt/opencv-python/wheelhouse /

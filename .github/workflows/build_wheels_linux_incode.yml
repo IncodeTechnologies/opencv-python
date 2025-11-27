@@ -6,16 +6,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [ '3.10' ]
-        platform: [ 'linux/amd64', 'linux/arm64' ]
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: get tag
         id: get_tag
         run: |
@@ -23,21 +29,15 @@ jobs:
           echo "tag: ${tag//[^0-9]/}"
           echo "tag=${tag//[^0-9]/}" >> $GITHUB_OUTPUT
       - name: Build wheel
-        uses: docker/build-push-action@v4
-        with:
-          file: Dockerfile.incode_build
-          platforms: ${{ matrix.platform }}
-          push: false
-          context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: export-stage
-          build-args: |
-            PYTHON_VERSION=${{ matrix.python-version }}
-            OPENCV_TAG=${{ steps.get_tag.outputs.tag }}
-          tags: |
-            incodetech/opencv-python-env
-          outputs: type=local,dest=./
+        run: |
+          docker build \
+            --file Dockerfile.incode_build \
+            --target export-stage \
+            --build-arg PYTHON_VERSION=${{ matrix.python-version }} \
+            --build-arg OPENCV_TAG=${{ steps.get_tag.outputs.tag }} \
+            --tag incodetech/opencv-python-env \
+            --output type=local,dest=./ \
+            .
       - name: Create release
         if: ${{ startsWith(github.ref, 'refs/tags/') == true }}
         uses: softprops/action-gh-release@v1

@@ -41,4 +41,4 @@ jobs:
         with:
           fail_on_unmatched_files: true
           files: |
-            opencv_python_*.whl
+            opencv_python_*manylinux*.whl
